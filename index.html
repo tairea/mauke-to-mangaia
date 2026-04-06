@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mauke to Mangaia Connection</title>
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.125/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.125/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        #cesiumContainer {
+            width: 100%;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div id="cesiumContainer"></div>
+    <script>
+        // Initialize Cesium ion access token
+        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJhYjc1N2EwMS04ZDRmLTRkNzctODM3YS1iNjI3YmQyYzAxOWMiLCJpZCI6MjY4NDg3LCJpYXQiOjE3MzY3MDQwODN9.u4-ZP17AgywR8c_xGzxsQrEQdxOt6zbLp_fMXoeiYpA';
+
+        // Create hidden credits container
+        const creditContainer = document.createElement('div');
+        creditContainer.style.display = 'none';
+
+        // Initialize the Cesium Viewer with minimal options first
+        const viewer = new Cesium.Viewer('cesiumContainer', {
+            terrain: Cesium.Terrain.fromWorldTerrain({
+                requestVertexNormals: true,
+                requestWaterMask: true
+            }),
+            baseLayerPicker: false,
+            geocoder: false,
+            homeButton: false,
+            infoBox: false,
+            navigationHelpButton: false,
+            sceneModePicker: false,
+            animation: false,
+            timeline: false,
+            fullscreenButton: false,
+            creditContainer: creditContainer,
+            requestRenderMode: true,
+            maximumRenderTimeChange: Infinity
+        });
+
+        // Configure scene appearance
+        viewer.scene.globe.showGroundAtmosphere = false;
+        viewer.scene.backgroundColor = Cesium.Color.WHITE;
+        viewer.scene.globe.enableLighting = false;
+        viewer.scene.globe.baseColor = Cesium.Color.WHITE;
+        viewer.scene.light = new Cesium.DirectionalLight({
+            direction: new Cesium.Cartesian3(0.0, 0.0, -1.0), // Light from directly above
+            intensity: 2.0  // Increased intensity
+        });
+
+        // Remove time-based lighting
+        viewer.clock.multiplier = 0;
+
+        // Coordinates for Mauke and Mangaia islands
+        const maukePosition = Cesium.Cartesian3.fromDegrees(-157.3397, -20.1508);
+        const mangaiaPosition = Cesium.Cartesian3.fromDegrees(-157.9189, -21.9144);
+
+        // Update entities for the islands with smaller glowing points
+        viewer.entities.add({
+            name: 'Mauke',
+            position: maukePosition,
+            point: {
+                pixelSize: 6,
+                color: Cesium.Color.CYAN.withAlpha(0.9),
+                outlineColor: Cesium.Color.CYAN.withAlpha(0.3),
+                outlineWidth: 3,
+                scaleByDistance: new Cesium.NearFarScalar(1.5e2, 1.5, 1.5e7, 0.5)
+            },
+            label: {
+                text: 'Mauke',
+                font: '14pt sans-serif',
+                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                fillColor: Cesium.Color.CYAN,
+                outlineColor: Cesium.Color.BLACK,
+                outlineWidth: 2,
+                horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+                pixelOffset: new Cesium.Cartesian2(10, 0),
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 500000)
+            }
+        });
+
+        viewer.entities.add({
+            name: 'Mangaia',
+            position: mangaiaPosition,
+            point: {
+                pixelSize: 6,
+                color: Cesium.Color.CYAN.withAlpha(0.9),
+                outlineColor: Cesium.Color.CYAN.withAlpha(0.3),
+                outlineWidth: 3,
+                scaleByDistance: new Cesium.NearFarScalar(1.5e2, 1.5, 1.5e7, 0.5)
+            },
+            label: {
+                text: 'Mangaia',
+                font: '14pt sans-serif',
+                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                fillColor: Cesium.Color.CYAN,
+                outlineColor: Cesium.Color.BLACK,
+                outlineWidth: 2,
+                horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+                pixelOffset: new Cesium.Cartesian2(10, 0),
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 500000)
+            }
+        });
+
+        // Add bezier curve calculation function
+        function calculateBezierPoints(start, end, height, numPoints = 50) {
+            const points = [];
+            const midPoint = [
+                (start[0] + end[0]) / 2,
+                (start[1] + end[1]) / 2
+            ];
+
+            for (let i = 0; i <= numPoints; i++) {
+                const t = i / numPoints;
+                
+                // Bezier curve formula
+                const x = Math.pow(1 - t, 2) * start[0] + 
+                         2 * (1 - t) * t * midPoint[0] + 
+                         Math.pow(t, 2) * end[0];
+                
+                const y = Math.pow(1 - t, 2) * start[1] + 
+                         2 * (1 - t) * t * midPoint[1] + 
+                         Math.pow(t, 2) * end[1];
+                
+                // Parabolic height
+                const h = height * 4 * t * (1 - t);  // Maximum height at t = 0.5
+                
+                points.push(x, y, h);
+            }
+            
+            return points;
+        }
+
+        // Calculate bezier curve points
+        const startPoint = [-157.3397, -20.1508];
+        const endPoint = [-157.9189, -21.9144];
+        const maxHeight = 35000;
+        const curvePoints = calculateBezierPoints(startPoint, endPoint, maxHeight);
+
+        // Add the connecting line with arc and enhanced glow
+        viewer.entities.add({
+            name: 'Connection Line',
+            polyline: {
+                positions: Cesium.Cartesian3.fromDegreesArrayHeights(curvePoints),
+                width: 3,
+                material: new Cesium.PolylineGlowMaterialProperty({
+                    glowPower: 0.5,
+                    taperPower: 1,
+                    color: Cesium.Color.CYAN.withAlpha(0.9)
+                })
+            }
+        });
+
+        // Add a second line for enhanced glow effect
+        viewer.entities.add({
+            name: 'Connection Line Glow',
+            polyline: {
+                positions: Cesium.Cartesian3.fromDegreesArrayHeights(curvePoints),
+                width: 8,
+                material: new Cesium.ColorMaterialProperty(
+                    Cesium.Color.CYAN.withAlpha(0.3)
+                )
+            }
+        });
+
+        // Add outer glow effect
+        viewer.entities.add({
+            name: 'Connection Line Outer Glow',
+            polyline: {
+                positions: Cesium.Cartesian3.fromDegreesArrayHeights(curvePoints),
+                width: 12,
+                material: new Cesium.ColorMaterialProperty(
+                    Cesium.Color.CYAN.withAlpha(0.1)
+                )
+            }
+        });
+
+        // Set the camera to view both islands
+        viewer.camera.flyTo({
+            destination: Cesium.Rectangle.fromDegrees(-158.5, -22.5, -156.8, -19.5),
+            duration: 2
+        });
+
+        // Configure zoom controls
+        viewer.scene.screenSpaceCameraController.enableZoom = true;
+        viewer.scene.screenSpaceCameraController.zoomEventTypes = [
+            Cesium.CameraEventType.WHEEL,
+            Cesium.CameraEventType.PINCH
+        ];
+
+        // Add continuous camera rotation
+        let heading = 0;
+        const rotationSpeed = -0.1;
+        const centerPoint = Cesium.Cartesian3.fromDegrees(-157.6293, -21.0326, 0);
+        const distance = 300000; // Reduced from 500000 to 300000 for closer view
+
+        viewer.clock.onTick.addEventListener(() => {
+            heading += rotationSpeed * (Math.PI / 180); // Convert to radians
+            
+            viewer.camera.lookAt(
+                centerPoint,
+                new Cesium.HeadingPitchRange(
+                    heading,
+                    Cesium.Math.toRadians(-45), // 45-degree pitch
+                    distance
+                )
+            );
+        });
+
+        // Add surrounding islands labels
+        const surroundingIslands = [
+            { name: 'Atiu', position: [-158.1167, -20.0167] },
+            { name: 'Mitiaro', position: [-157.7031, -19.8425] },
+            { name: 'Takutea', position: [-158.3167, -19.75] },
+            { name: 'Aitutaki', position: [-159.7833, -18.8573] },
+            { name: 'Manuae', position: [-158.9333, -19.2667] },
+            { name: 'Rarotonga', position: [-159.7756, -21.2037] }
+        ];
+
+        // Add labels for surrounding islands
+        surroundingIslands.forEach(island => {
+            viewer.entities.add({
+                position: Cesium.Cartesian3.fromDegrees(island.position[0], island.position[1]),
+                label: {
+                    text: island.name,
+                    font: '12pt sans-serif',
+                    style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                    fillColor: Cesium.Color.WHITE,
+                    outlineColor: Cesium.Color.BLACK,
+                    outlineWidth: 2,
+                    horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+                    verticalOrigin: Cesium.VerticalOrigin.CENTER,
+                    pixelOffset: new Cesium.Cartesian2(0, -10),
+                    distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 1000000),
+                    translucencyByDistance: new Cesium.NearFarScalar(300000, 1.0, 1000000, 0.4)
+                },
+                point: {
+                    pixelSize: 4,
+                    color: Cesium.Color.WHITE.withAlpha(0.6),
+                    outlineColor: Cesium.Color.WHITE.withAlpha(0.3),
+                    outlineWidth: 2,
+                    scaleByDistance: new Cesium.NearFarScalar(1.5e2, 1.2, 1.5e7, 0.3)
+                }
+            });
+        });
+    </script>
+</body>
+</html>
